@@ -10,7 +10,3 @@ maintainer( 'Jan Wielemaker', 'jan@swi-prolog.org' ).
 home( 'https://github.com/JanWielemaker/rocksdb' ).
 download('https://github.com/EricGT/rocksdb.git').
 
-% Load vcpkg cmake options on Windows for pack_install integration
-:- if(current_prolog_flag(windows, true)).
-:- use_module(cmake_options).
-:- endif.

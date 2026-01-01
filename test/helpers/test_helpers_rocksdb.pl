@@ -13,9 +13,14 @@
 
 %! test_db(-Path) is det.
 %
-% Provides the default test database path for Windows.
+% Provides the default test database path using system temp directory.
 
-test_db('c:/temp/test_rocksdb').
+:- dynamic test_db/1.
+
+:- (   current_prolog_flag(tmp_dir, TmpDir),
+       atomic_list_concat([TmpDir, '/test_rocksdb'], Path),
+       assertz(test_db(Path))
+   ).
 
 %! delete_db is det.
 %

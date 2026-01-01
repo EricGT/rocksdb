@@ -436,9 +436,16 @@ test(compare, [setup(setup_db(Dir, DB)),
 		 *	       UTIL		*
 		 *******************************/
 
-test_db('/tmp/test_rocksdb').
-test_db2('/tmp/test_rocksdb2').
-test_db3('/tmp/test_rocksd0').
+:- dynamic test_db/1, test_db2/1, test_db3/1.
+
+:- (   current_prolog_flag(tmp_dir, TmpDir),
+       atomic_list_concat([TmpDir, '/test_rocksdb'], Path1),
+       atomic_list_concat([TmpDir, '/test_rocksdb2'], Path2),
+       atomic_list_concat([TmpDir, '/test_rocksd0'], Path3),
+       assertz(test_db(Path1)),
+       assertz(test_db2(Path2)),
+       assertz(test_db3(Path3))
+   ).
 
 delete_db :-
     test_db(DB),

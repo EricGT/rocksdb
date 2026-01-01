@@ -1,0 +1,73 @@
+--- swipl-patches/tools.pl.original	2025-12-29 18:02:22.427346300 -0500
++++ swipl-patches/tools.pl.patched	2025-12-30 08:34:04.372160100 -0500
+@@ -234,6 +234,9 @@
+ %     File name extension for modules (e.g., `so` or `dll`)
+ %     $ ``SWIPL_PREFIX`` (``PREFIX``) :
+ %     Install prefix for global binaries, libraries and include files.
++%     $ ``VCPKG_ROOT`` :
++%     If set in the user's environment, passed through to enable vcpkg
++%     integration in CMake-based pack builds.
+ 
+ build_environment(Env, Options) :-
+     findall(Name=Value,
+@@ -288,6 +291,10 @@
+     option(pack_version(Value), Options, 1).
+ def_environment('SWIPL_PACK_PATH', Value, _Options) :-
+     prolog_config(pack_path, Value).
++%   vcpkg integration: Pass through VCPKG_ROOT if set, enabling
++%   cmake.pl to inject the vcpkg toolchain file.
++def_environment('VCPKG_ROOT', Value, _Options) :-
++    getenv('VCPKG_ROOT', Value).
+ def_environment(VAR, Value, Options) :-
+     env_name(version, VAR, Options),
+     current_prolog_flag(version, Value).
+@@ -728,9 +735,35 @@
+     current_prolog_flag(windows, true),
+     \+ current_prolog_flag(msys2, true),
+     !,
+-    setup_path([make, gcc]).
++    (   vcpkg_available
++    ->  print_message(informational, build(using_vcpkg)),
++        setup_path_vcpkg      % vcpkg + MSVC: need cmake, not make/gcc
++    ;   setup_path([make, gcc])  % MinGW: need make/gcc
++    ).
+ setup_path.
+ 
++%!  vcpkg_available is semidet.
++%
++%   True if vcpkg is configured and available for use.
++%   Uses absolute_file_name/3 for proper Windows path normalization.
++
++vcpkg_available :-
++    getenv('VCPKG_ROOT', Root),
++    Root \== '',
++    atomic_list_concat([Root, '/scripts/buildsystems/vcpkg.cmake'], ToolchainFile),
++    absolute_file_name(ToolchainFile, _, [access(read), file_errors(fail)]).
++
++%!  setup_path_vcpkg is det.
++%
++%   Setup path for vcpkg + MSVC builds. Requires cmake but not make/gcc.
++%   MSVC compiler (cl.exe) should be available via VS Developer Command Prompt.
++
++setup_path_vcpkg :-
++    (   has_program(cmake)
++    ->  true
++    ;   print_message(error, build(no_cmake_for_vcpkg))
++    ).
++
+ %!  setup_path(+Programs) is det.
+ %
+ %   Deals  with  specific  platforms  to  add  specific  directories  to
+@@ -794,6 +827,12 @@
+ 
+ message(no_mingw) -->
+     [ 'Cannot find MinGW and/or MSYS.'-[] ].
++message(no_cmake_for_vcpkg) -->
++    [ 'VCPKG_ROOT is set but cmake is not found on PATH.'-[], nl,
++      'Install CMake and ensure it is in PATH, or use VS Developer Command Prompt.'-[]
++    ].
++message(using_vcpkg) -->
++    [ 'Using vcpkg toolchain (VCPKG_ROOT detected)'-[] ].
+ message(process_output(Codes)) -->
+     process_output(Codes).
+ message(step_failed(Step)) -->

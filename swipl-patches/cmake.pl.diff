@@ -1,0 +1,55 @@
+--- cmake.pl.original	2025-12-29 18:02:17.782789700 -0500
++++ cmake.pl.patched	2025-12-29 18:03:42.143904000 -0500
+@@ -106,6 +106,52 @@
+     has_program(path(ninja), _, State.env),
+     member(Opt, ['-G', 'Ninja']).
+ 
++%!  cmake_option(+State, -Define) is nondet.
++%
++%   vcpkg integration: If VCPKG_ROOT is set in the environment,
++%   inject the toolchain file to enable vcpkg package discovery.
++
++cmake_option(State, CDEF) :-
++    vcpkg_toolchain_file(State, ToolchainFile),
++    format(atom(CDEF), '-DCMAKE_TOOLCHAIN_FILE=~w', [ToolchainFile]).
++
++%!  cmake_option(+State, -Define) is nondet.
++%
++%   vcpkg integration: On Windows, set the target triplet based on
++%   SWI-Prolog's architecture (x64-windows for 64-bit).
++
++cmake_option(_, '-DVCPKG_TARGET_TRIPLET=x64-windows') :-
++    current_prolog_flag(windows, true),
++    current_prolog_flag(arch, Arch),
++    sub_atom(Arch, _, _, _, '64').
++cmake_option(_, '-DVCPKG_TARGET_TRIPLET=x86-windows') :-
++    current_prolog_flag(windows, true),
++    current_prolog_flag(arch, Arch),
++    \+ sub_atom(Arch, _, _, _, '64').
++
++%!  vcpkg_toolchain_file(+State, -ToolchainFile) is semidet.
++%
++%   Determine the vcpkg toolchain file path from VCPKG_ROOT in
++%   the build environment or system environment.
++
++vcpkg_toolchain_file(State, ToolchainFile) :-
++    % First check the build environment
++    memberchk('VCPKG_ROOT'=Root, State.env),
++    !,
++    vcpkg_toolchain_path(Root, ToolchainFile).
++vcpkg_toolchain_file(_, ToolchainFile) :-
++    % Fallback to system environment
++    getenv('VCPKG_ROOT', Root),
++    vcpkg_toolchain_path(Root, ToolchainFile).
++
++%!  vcpkg_toolchain_path(+Root, -ToolchainFile) is semidet.
++%
++%   Construct and verify the vcpkg toolchain file path.
++
++vcpkg_toolchain_path(Root, ToolchainFile) :-
++    atom_concat(Root, '/scripts/buildsystems/vcpkg.cmake', ToolchainFile),
++    exists_file(ToolchainFile).
++
+ run_cmake_target(State, Target) :-
+     cmake_generator_file(Generator, File),
+     directory_file_path(State.bin_dir, File, AbsFile),

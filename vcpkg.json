@@ -1,0 +1,10 @@
+{
+  "name": "rocksdb4pl",
+  "version": "0.14.4",
+  "dependencies": [
+    {
+      "name": "rocksdb",
+      "features": ["lz4", "snappy", "zlib", "zstd"]
+    }
+  ]
+}

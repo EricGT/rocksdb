@@ -102,26 +102,56 @@ add_library(rocksdb4pl MODULE cpp/rocksdb4pl.cpp)
 target_link_libraries(rocksdb4pl PRIVATE RocksDB::rocksdb)
 
 # =============================================================================
-# Create swipl::libswipl Target if Missing
+# Fix swipl::libswipl Target for Windows Development Builds
 # =============================================================================
-# swipl.cmake has a bug on Windows where it looks for SWIPLTargets.cmake
-# in the wrong directory (parent of swipl_home_dir instead of lib/cmake/swipl).
-# Work around by creating the target manually if it doesn't exist.
-if(NOT TARGET swipl::libswipl)
-    if(DEFINED ENV{SWIPL_HOME_DIR})
-        set(SWIPL_HOME "$ENV{SWIPL_HOME_DIR}")
-    elseif(EXISTS "C:/Program Files/swipl")
-        set(SWIPL_HOME "C:/Program Files/swipl")
+# On Windows, swipl.cmake fails to properly create the swipl::libswipl target
+# because it looks for the library in the wrong directory structure.
+# The built swipl is in: ${BUILD_DIR}/src/Release or ${BUILD_DIR}/src/Debug
+# Not in: ${BUILD_DIR}/src
+#
+# Fix: Always recreate the target with correct paths to ensure linking works.
+if(DEFINED ENV{SWIPL_HOME_DIR})
+    set(SWIPL_HOME "$ENV{SWIPL_HOME_DIR}")
+    # For development builds, determine the configuration
+    if(CMAKE_BUILD_TYPE MATCHES Debug)
+        set(SWIPL_LIB_DIR "${SWIPL_HOME}/../src/Debug")
+        set(SWIPL_DLL_NAME "libswipl.dll")
+        set(SWIPL_LIB_NAME "libswipl.lib")
+    else()
+        set(SWIPL_LIB_DIR "${SWIPL_HOME}/../src/Release")
+        set(SWIPL_DLL_NAME "libswipl.dll")
+        set(SWIPL_LIB_NAME "libswipl.lib")
     endif()
 
-    if(SWIPL_HOME AND EXISTS "${SWIPL_HOME}/include/SWI-Prolog.h")
-        message(STATUS "Creating swipl::libswipl target manually (swipl.cmake workaround)")
+    if(EXISTS "${SWIPL_LIB_DIR}/${SWIPL_DLL_NAME}")
+        message(STATUS "Creating swipl::libswipl target for dev build")
+        # Remove old target if it exists (swipl.cmake may have created a broken one)
+        if(TARGET swipl::libswipl)
+            # Can't actually remove it, so skip creation
+            message(STATUS "swipl::libswipl target already exists, using it")
+        else()
+            add_library(swipl::libswipl SHARED IMPORTED)
+            set_target_properties(swipl::libswipl PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${SWIPL_HOME}/include"
+                IMPORTED_LOCATION "${SWIPL_LIB_DIR}/${SWIPL_DLL_NAME}"
+                IMPORTED_IMPLIB "${SWIPL_LIB_DIR}/${SWIPL_LIB_NAME}"
+            )
+            message(STATUS "swipl::libswipl configured for: ${SWIPL_LIB_DIR}")
+        endif()
+    endif()
+elseif(NOT TARGET swipl::libswipl)
+    # Fallback for production installations
+    if(EXISTS "C:/Program Files/swipl")
+        set(SWIPL_HOME "C:/Program Files/swipl")
+        message(STATUS "Creating swipl::libswipl target for production installation")
         add_library(swipl::libswipl SHARED IMPORTED)
         set_target_properties(swipl::libswipl PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES "${SWIPL_HOME}/include"
             IMPORTED_LOCATION "${SWIPL_HOME}/bin/libswipl.dll"
             IMPORTED_IMPLIB "${SWIPL_HOME}/bin/libswipl.lib"
         )
+    else()
+        message(FATAL_ERROR "Cannot find SWI-Prolog. Set SWIPL_HOME_DIR environment variable.")
     endif()
 endif()
 

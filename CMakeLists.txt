@@ -211,38 +211,31 @@ set_target_properties(rocksdb4pl PROPERTIES
 # Copy RocksDB DLL Dependencies (Windows)
 # =============================================================================
 if(WIN32)
-    # Find vcpkg bin directory for dependency DLLs
+    # Copy RocksDB DLL dependencies to lib directory
+    # These are needed by rocksdb4pl.dll at runtime
+    #
+    # NOTE: DLL dependencies are found automatically by Windows loader if they're
+    # in the same directory as the module, so this step is optional but recommended
+    # for standalone distribution of the rocksdb4pl package.
+
     if(DEFINED ENV{VCPKG_ROOT})
-        file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin" VCPKG_BIN_DIR)
+        set(VCPKG_BIN_DIR "$ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin")
     elseif(EXISTS "C:/vcpkg/installed/x64-windows/bin")
         set(VCPKG_BIN_DIR "C:/vcpkg/installed/x64-windows/bin")
     endif()
 
-    if(VCPKG_BIN_DIR AND EXISTS "${VCPKG_BIN_DIR}")
+    if(VCPKG_BIN_DIR)
         message(STATUS "vcpkg bin directory: ${VCPKG_BIN_DIR}")
 
-        # Convert OUTPUT_DIR to forward slashes for cmake -E copy_if_different
-        file(TO_CMAKE_PATH "${OUTPUT_DIR}" OUTPUT_DIR_CMAKE)
-
-        # Copy all vcpkg DLLs to pack's lib directory
-        # This is sufficient - SWI-Prolog finds DLLs in the same directory as the module
+        # Copy only if source DLLs exist
+        # Use explicit file copy instead of a list to avoid escaping issues
         add_custom_command(TARGET rocksdb4pl POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E echo "Copying vcpkg DLLs to ${OUTPUT_DIR_CMAKE}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/rocksdb-shared.dll" "${OUTPUT_DIR_CMAKE}/"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/lz4.dll" "${OUTPUT_DIR_CMAKE}/"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/snappy.dll" "${OUTPUT_DIR_CMAKE}/"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/zlib1.dll" "${OUTPUT_DIR_CMAKE}/"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/zstd.dll" "${OUTPUT_DIR_CMAKE}/"
+            COMMAND if exist "${VCPKG_BIN_DIR}/rocksdb-shared.dll" ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/rocksdb-shared.dll" "${OUTPUT_DIR}"
+            COMMAND if exist "${VCPKG_BIN_DIR}/lz4.dll" ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/lz4.dll" "${OUTPUT_DIR}"
+            COMMAND if exist "${VCPKG_BIN_DIR}/snappy.dll" ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/snappy.dll" "${OUTPUT_DIR}"
+            COMMAND if exist "${VCPKG_BIN_DIR}/zlib1.dll" ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/zlib1.dll" "${OUTPUT_DIR}"
+            COMMAND if exist "${VCPKG_BIN_DIR}/zstd.dll" ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/zstd.dll" "${OUTPUT_DIR}"
             COMMENT "Copying RocksDB DLL dependencies to pack lib directory"
-        )
-    elseif(TARGET RocksDB::rocksdb-shared)
-        # Fallback: just copy the RocksDB DLL if vcpkg bin not found
-        add_custom_command(TARGET rocksdb4pl POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E echo "Copying RocksDB DLL to ${OUTPUT_DIR}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "$<TARGET_FILE:RocksDB::rocksdb-shared>"
-                "${OUTPUT_DIR}/"
-            COMMENT "Copying RocksDB DLL dependencies"
         )
     endif()
 endif()

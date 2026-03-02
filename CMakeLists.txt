@@ -213,7 +213,7 @@ set_target_properties(rocksdb4pl PROPERTIES
 if(WIN32)
     # Find vcpkg bin directory for dependency DLLs
     if(DEFINED ENV{VCPKG_ROOT})
-        set(VCPKG_BIN_DIR "$ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin")
+        file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin" VCPKG_BIN_DIR)
     elseif(EXISTS "C:/vcpkg/installed/x64-windows/bin")
         set(VCPKG_BIN_DIR "C:/vcpkg/installed/x64-windows/bin")
     endif()
@@ -221,15 +221,18 @@ if(WIN32)
     if(VCPKG_BIN_DIR AND EXISTS "${VCPKG_BIN_DIR}")
         message(STATUS "vcpkg bin directory: ${VCPKG_BIN_DIR}")
 
+        # Convert OUTPUT_DIR to forward slashes for cmake -E copy_if_different
+        file(TO_CMAKE_PATH "${OUTPUT_DIR}" OUTPUT_DIR_CMAKE)
+
         # Copy all vcpkg DLLs to pack's lib directory
         # This is sufficient - SWI-Prolog finds DLLs in the same directory as the module
         add_custom_command(TARGET rocksdb4pl POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E echo "Copying vcpkg DLLs to ${OUTPUT_DIR}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/rocksdb-shared.dll" "${OUTPUT_DIR}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/lz4.dll" "${OUTPUT_DIR}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/snappy.dll" "${OUTPUT_DIR}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/zlib1.dll" "${OUTPUT_DIR}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/zstd.dll" "${OUTPUT_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E echo "Copying vcpkg DLLs to ${OUTPUT_DIR_CMAKE}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/rocksdb-shared.dll" "${OUTPUT_DIR_CMAKE}/"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/lz4.dll" "${OUTPUT_DIR_CMAKE}/"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/snappy.dll" "${OUTPUT_DIR_CMAKE}/"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/zlib1.dll" "${OUTPUT_DIR_CMAKE}/"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VCPKG_BIN_DIR}/zstd.dll" "${OUTPUT_DIR_CMAKE}/"
             COMMENT "Copying RocksDB DLL dependencies to pack lib directory"
         )
     elseif(TARGET RocksDB::rocksdb-shared)
@@ -238,7 +241,7 @@ if(WIN32)
             COMMAND ${CMAKE_COMMAND} -E echo "Copying RocksDB DLL to ${OUTPUT_DIR}"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "$<TARGET_FILE:RocksDB::rocksdb-shared>"
-                "${OUTPUT_DIR}"
+                "${OUTPUT_DIR}/"
             COMMENT "Copying RocksDB DLL dependencies"
         )
     endif()

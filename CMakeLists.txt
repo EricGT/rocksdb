@@ -109,34 +109,40 @@ target_link_libraries(rocksdb4pl PRIVATE RocksDB::rocksdb)
 # The built swipl is in: ${BUILD_DIR}/src/Release or ${BUILD_DIR}/src/Debug
 # Not in: ${BUILD_DIR}/src
 #
-# Fix: Always recreate the target with correct paths to ensure linking works.
+# Fix: Set proper properties on the target (swipl.cmake may have created a
+# broken one with missing IMPORTED_IMPLIB for some configurations).
 if(DEFINED ENV{SWIPL_HOME_DIR})
     set(SWIPL_HOME "$ENV{SWIPL_HOME_DIR}")
-    # For development builds, determine the configuration
-    if(CMAKE_BUILD_TYPE MATCHES Debug)
-        set(SWIPL_LIB_DIR "${SWIPL_HOME}/../src/Debug")
-        set(SWIPL_DLL_NAME "libswipl.dll")
-        set(SWIPL_LIB_NAME "libswipl.lib")
-    else()
-        set(SWIPL_LIB_DIR "${SWIPL_HOME}/../src/Release")
-        set(SWIPL_DLL_NAME "libswipl.dll")
-        set(SWIPL_LIB_NAME "libswipl.lib")
-    endif()
+    # For development builds, both Release and Debug are at the same paths
+    set(SWIPL_LIB_DIR "${SWIPL_HOME}/../src/Release")
+    set(SWIPL_DEBUG_LIB_DIR "${SWIPL_HOME}/../src/Debug")
 
-    if(EXISTS "${SWIPL_LIB_DIR}/${SWIPL_DLL_NAME}")
-        message(STATUS "Creating swipl::libswipl target for dev build")
-        # Remove old target if it exists (swipl.cmake may have created a broken one)
+    if(EXISTS "${SWIPL_LIB_DIR}/libswipl.dll")
         if(TARGET swipl::libswipl)
-            # Can't actually remove it, so skip creation
-            message(STATUS "swipl::libswipl target already exists, using it")
+            message(STATUS "Fixing swipl::libswipl target properties for Windows dev build")
+            # Set properties for the already-created target
+            set_target_properties(swipl::libswipl PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${SWIPL_HOME}/include"
+                IMPORTED_LOCATION_DEBUG "${SWIPL_DEBUG_LIB_DIR}/libswipl.dll"
+                IMPORTED_LOCATION_RELEASE "${SWIPL_LIB_DIR}/libswipl.dll"
+                IMPORTED_LOCATION "${SWIPL_LIB_DIR}/libswipl.dll"
+                IMPORTED_IMPLIB_DEBUG "${SWIPL_DEBUG_LIB_DIR}/libswipl.lib"
+                IMPORTED_IMPLIB_RELEASE "${SWIPL_LIB_DIR}/libswipl.lib"
+                IMPORTED_IMPLIB "${SWIPL_LIB_DIR}/libswipl.lib"
+            )
+            message(STATUS "swipl::libswipl configured for dev build at: ${SWIPL_LIB_DIR}")
         else()
+            message(STATUS "Creating swipl::libswipl target for dev build")
             add_library(swipl::libswipl SHARED IMPORTED)
             set_target_properties(swipl::libswipl PROPERTIES
                 INTERFACE_INCLUDE_DIRECTORIES "${SWIPL_HOME}/include"
-                IMPORTED_LOCATION "${SWIPL_LIB_DIR}/${SWIPL_DLL_NAME}"
-                IMPORTED_IMPLIB "${SWIPL_LIB_DIR}/${SWIPL_LIB_NAME}"
+                IMPORTED_LOCATION_DEBUG "${SWIPL_DEBUG_LIB_DIR}/libswipl.dll"
+                IMPORTED_LOCATION_RELEASE "${SWIPL_LIB_DIR}/libswipl.dll"
+                IMPORTED_LOCATION "${SWIPL_LIB_DIR}/libswipl.dll"
+                IMPORTED_IMPLIB_DEBUG "${SWIPL_DEBUG_LIB_DIR}/libswipl.lib"
+                IMPORTED_IMPLIB_RELEASE "${SWIPL_LIB_DIR}/libswipl.lib"
+                IMPORTED_IMPLIB "${SWIPL_LIB_DIR}/libswipl.lib"
             )
-            message(STATUS "swipl::libswipl configured for: ${SWIPL_LIB_DIR}")
         endif()
     endif()
 elseif(NOT TARGET swipl::libswipl)

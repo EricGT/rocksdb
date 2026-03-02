@@ -1,3 +1,10 @@
 buildenv.sh
 status.db
 lib/
+build/
+*.obj
+*.exe
+*.lib
+*.dll
+*.pdb
+.vs/
